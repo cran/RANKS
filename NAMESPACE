@@ -1,0 +1,15 @@
+exportPattern("^[[:alpha:]]+")
+exportMethods(
+    "eav.score",
+    "KNN.score",
+    "NN.score",
+    "p.step.rw.kernel",
+    "rw.kernel",
+    "single.eav.score",
+    "single.KNN.score",
+    "single.NN.score",
+    "single.WSLD.score",
+    "WSLD.score" 
+)
+import(methods, limma, graph, RBGL, NetPreProc, PerfMeas)
+importFrom("stats", "quantile")
