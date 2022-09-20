@@ -1,3 +1,8 @@
+#library(graph);
+# added not stratified cross-validation
+#dyn.load("RANKS.so")
+
+
 #################################
 ## Graph kernels
 #################################
@@ -194,6 +199,13 @@ poly.kernel <- function(W, degree=2, scale=-1, v=0) {
 }
 
 
+#' Function to normalize a kernel according to the unit sphere
+#' @param K : a kernel matrix     
+#' @return The normalized kernel
+Unit.sphere.norm <- function(K) {
+   d <- diag(K);
+   return(K / sqrt(d %*% t(d)));
+}
 
 
 
@@ -326,18 +338,18 @@ setGeneric("single.NN.score",
 #' @param auto : boolean. If TRUE the components \eqn{K(x,x) + K(x_i,x_i)} are computed, otherwise are discarded (default)
 #' @return The NN score of the element x
 setMethod("single.NN.score", signature(RW="matrix"),
-  function(RW, x, x.pos, auto=FALSE) {
+   function(RW, x, x.pos, auto=FALSE) {
 	if (nrow(RW) != ncol(RW))
-      stop("second arg must be a square matrix");
+           stop("second arg must be a square matrix");
 	n <- length(x.pos);
 	if (auto) {
-      scores <- rep(RW[x,x],n) + diag(RW)[x.pos] - 2 * RW[x,x.pos];
-      names(scores) <- x;
-      score <-  - min(scores);           
+           scores <- rep(RW[x,x],n) + diag(RW)[x.pos] - 2 * RW[x,x.pos];
+           names(scores) <- x;
+           score <-  - min(scores);           
 	} else {
-      scores <- RW[x,x.pos];
-      names(scores) <- x;
-      score <- max(scores);
+           scores <- RW[x,x.pos];
+           names(scores) <- x;
+           score <- max(scores);
 	}
 	return(score);
 })
@@ -440,25 +452,25 @@ setGeneric("single.KNN.score",
 setMethod("single.KNN.score", signature(RW="matrix"),
   function(RW, x, x.pos, k=3, auto=FALSE) {
 	if (nrow(RW) != ncol(RW))
-      stop("second arg must be a square matrix");
-	n <- length(x.pos);
-	if (k > n) {
-      k <- n;
-      warn.message <- paste("k must be lower or equal to the number of positive examples: k set to", n);
-      warning(warn.message);
-	}     
-	if (auto) {
-      scores <- rep(RW[x,x],n) + diag(RW)[x.pos] - 2 * RW[x,x.pos];
-      names(scores) <- x;
-      scores <- sort(scores)[1:k];
-      score <-  - sum(scores);           
-	} else {
-      scores <- RW[x,x.pos];
-      names(scores) <- x;
-      scores <- sort(scores, decreasing=TRUE)[1:k];
-      score <- sum(scores);
-	}
-	return(score/k);
+          stop("second arg must be a square matrix");
+	  n <- length(x.pos);
+	  if (k > n) {
+            k <- n;
+            warn.message <- paste("k must be lower or equal to the number of positive examples: k set to", n);
+            warning(warn.message);
+	  }     
+	  if (auto) {
+            scores <- rep(RW[x,x],n) + diag(RW)[x.pos] - 2 * RW[x,x.pos];
+            names(scores) <- x;
+            scores <- sort(scores)[1:k];
+            score <-  - sum(scores);           
+	  } else {
+            scores <- RW[x,x.pos];
+            names(scores) <- x;
+            scores <- sort(scores, decreasing=TRUE)[1:k];
+            score <- sum(scores);
+	  }
+	  return(score/k);
 })
 
 #' Method to compute the Kernel KNN score for a single vertex
@@ -529,7 +541,7 @@ setMethod("KNN.score", signature(RW="matrix"),
 	 y <- numeric(k);
 	 score = matrix(numeric(length(x)*k), ncol=k);
 	 for (j in 1:length(x))
-        score[j,] <- .C("select_top", as.double(scores[j,]), as.double(y), as.integer(n), as.integer(k), PACKAGE = "RANKS")[[2]]; 
+        score[j,] <- .C("select_top", as.double(scores[j,]), as.double(y), as.integer(n), as.integer(k), PACKAGE="RANKS") [[2]]; 
      score <- apply(score,1,sum);  # results are "per rows"
      names(score) <- x; 
    }
@@ -655,8 +667,7 @@ setMethod("WSLD.score", signature(RW="matrix"),
        w[1] <- 1;
        return(sum(sorted/w));
     }
-
-   
+  
     if (nrow(RW) != ncol(RW))
      stop("WSLD.score: first arg must be a square matrix");
 	m <- length(x);
@@ -689,6 +700,7 @@ setMethod("WSLD.score", signature(RW="graph"),
     RW <- as(RW, "matrix");
     return(WSLD.score(RW, x, x.pos, d, auto,norm));
 }) 
+
 
 
 
@@ -745,19 +757,23 @@ ker.score.cv <- function(RW, ind.pos, m=5, init.seed=NULL, fun=KNN.score, ...) {
 #' @param p : number of repeated cross-validations
 #' @param init.seed : initial seed for the random generator (def: 0)
 #' @param fun : function. It must be a kernel-based score method: KNN.score (default), NN.score or eav.score
+#' @param stratified : boolean. If true stratified cross-validation is performed, otherwise not stratified cv
 #' @param ... : optional arguments for the function fun
 #' @return a list with two components:
 #' - av.scores : a vector with the average scores across multiple cross-validations.
 #'               Elements of the vector av.scores correspond to the rows of RW
 #' - pos.scores : a vector with the scores of positive elements collected at each iteration
-multiple.ker.score.cv <-  function(RW, ind.pos, m=5, p=100, init.seed=0, fun=KNN.score, ...) {
+multiple.ker.score.cv <-  function(RW, ind.pos, m=5, p=100, stratified=TRUE, init.seed=0, fun=KNN.score,  ...) {
    n <- nrow(RW);
    current.scores <- av.scores <- numeric(n);  # vector of average scores
    pos.scores <- numeric();  # vector collecting the scores of positive examples
    
    for (v in 1:p) {
 	 # Realization of the m folds
-	 fold <- do.stratified.cv.data(1:n, ind.pos, k=m, seed=v+init.seed);
+	 if (stratified)
+	    fold <- do.stratified.cv.data(1:n, ind.pos, k=m, seed=v+init.seed)
+	 else
+	    fold <- do.cv.data(1:n, ind.pos, k=m, seed=v+init.seed);
 	 # computing scores on the m folds
 	 for (i in 1:m) {
        x <- c(fold$fold.positives[[i]], fold$fold.non.positives[[i]]);
@@ -958,6 +974,31 @@ ker.score.classifier.holdout <- function(K, ind.pos, ind.test, m=5, p=10, alpha=
 
 
 
+#' Function to rank labels according to an hold-out procedure with a kernel-based score method.
+#' @param K : matrix. Kernel matrix
+#' @param ind.pos : indices of the positive examples of the training set. They are the indices the row of K corresponding to
+#'          positive examples of the training set
+#' @param ind.test : indices of the examples of the test set. They are the indices the row of K corresponding to
+#'           examples of the test set
+#' @param fun : function. It must be a kernel-based score method:
+#'                 - KNN.score (default)
+#'                 - NN.score 
+#'                 - eav.score
+#                  - wsld.score
+#' @param ... : optional arguments for the function fun
+#' @return: a vector of the predicted scores for the test set
+ker.score.holdout <- function(K, ind.pos, ind.test, fun=KNN.score, ...) {
+   n <- nrow(K);
+   ind.train <- (1:n)[-ind.test];
+   dd <- intersect(ind.pos, ind.test);
+   if (length(dd)>0)
+     stop("ker.score.holdout: conflicting indices between training and test set");
+   scores <- fun(K,ind.test, ind.pos, ...);
+   return(scores);
+}
+
+
+
 
 #' Function to classify labels accroding to external cross-validation procedure with a kernel-based score method and to find the optimal
 #' threshold for a given class by internal cross-validation. 
@@ -1118,6 +1159,59 @@ do.stratified.cv.data <- function(examples, positives, k=5, seed=NULL) {
   return(list(fold.non.positives=fold.non.positives, fold.positives=fold.positives));
 }
 
+######################################################################
+#' Function to generate data for the non stratified cross-validation.
+#' @param examples : indices of the examples (a vector of integer)
+#' @param positives : vector of integer. Indices of the positive examples. The indices refer to the indices of examples
+#' @param k : number of folds (def = 5)
+#' @param seed : seed of the random generator (def=NULL). If is set to NULL no initiazitation is performed
+#' @return a list with 2 two components
+#'   - fold.non.positives : a list with k components. Each component is a vector with the indices of the non positive elements of the fold
+#'   - fold.positives : a list with k components. Each component is a vector with the indices of the positive elements of the fold
+#' N.B.: in both elements indices refer to row numbers of the data matrix	 
+do.cv.data <- function(examples, positives, k=5, seed=NULL) {
+  if (!is.null(seed))
+     set.seed(seed);
+  fold.non.positives <- fold.positives <- list();
+  for (i in 1:k) {
+    fold.non.positives[[i]] <- integer(0);
+    fold.positives[[i]] <- integer(0);
+  }
+  # examples <- 1:n;
+  non.positives <- setdiff(examples,positives);
+  # non.positives <- examples[-positives];
+  non.positives <- sample(non.positives);
+  n.positives <- length(positives);  
+  if (n.positives<2)
+    stop("Number of positives must be at least 2");
+  positives <- sample(positives);
+  
+  # take apart 2 positives to assure that there is at least 1 positive in at least 2 folds
+  p12 <- positives[1:2];
+  positives <- positives[-c(1,2)];
+  examples <- sample(c(positives,non.positives));
+  n <- length(examples);
+  resto.n <- n%%k;
+  n.per.fold <- (n - resto.n)/k;
+  j=1; 
+  if (n.per.fold > 0)
+    for (i in 1:k) {
+      fold.non.positives[[i]] <- examples[j:(j+n.per.fold-1)];
+	  fold.positives[[i]] <- intersect(positives, fold.non.positives[[i]]);
+	  fold.non.positives[[i]] <- setdiff(fold.non.positives[[i]], fold.positives[[i]]);
+      j <- j + n.per.fold;
+    }
+  # adding the 2 positives to the 2 first folds
+  for (i in 1:2)
+    fold.positives[[i]] <- c(fold.positives[[i]], p12[i]);
+  if (resto.n > 0) {
+     remaining <- examples[(n-resto.n+1):n];
+	 fold.non.positives[[k]] <- c(fold.non.positives[[k]], intersect(remaining, non.positives));
+	 fold.positives[[k]] <- c(fold.positives[[k]], intersect(remaining, positives));
+  }
+  
+  return(list(fold.non.positives=fold.non.positives, fold.positives=fold.positives));
+}
 
 
 
@@ -1200,14 +1294,6 @@ norm1 <- function(x) {
  return(sum(abs(x)));
 }
 
-#' Function to normalize a kernel according to the unit sphere
-#' @param K : a kernel matrix     
-#' @return The normalized kernel
-Unit.sphere.norm <- function(K) {
-   d <- diag(K);
-   return(K / sqrt(d %*% t(d)));
-}
-
 
 
 ######################################################################################################################
@@ -1228,10 +1314,11 @@ Unit.sphere.norm <- function(K) {
 #' @param sparsify : boolean. If TRUE (def) the input matrix is sparsified using Sparsify.matrix from NetpreProc
 #' @param kk : number of folds of the cross validation (def: 5)
 #' @param rep : number of repetitions of the cross validation (def: 1)
+#' @param stratified: boolean. If TRUE stratified cross-validation is performed, otherwise not stratified
 #' @param seed : intialization seed for the random generator to create folds (def:0)
-#' @param data.dir : relative path to directory where the adjiacency matrix is stored (def: ../data)
-#' @param labels.dir : relative path to directory where the label matrix is stored (def: ../data)
-#' @param output.dir : relative path to directory where the results are stored  (def: ../Results)
+#' @param data.dir : relative path to directory where the adjiacency matrix is stored 
+#' @param labels.dir : relative path to directory where the label matrix is stored 
+#' @param output.dir : relative path to directory where the results are stored  
 #' @param data : name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph. 
 #'        It assumes that it is in the data.dir directory
 #' @param labels : name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
@@ -1241,19 +1328,19 @@ Unit.sphere.norm <- function(K) {
 #' - Scores results: A matrix with examples on rows and classes on columns representing the computed scores for each example and for each considered class
 #' - AUC results files computed through AUC.single.over.classes
 #' - Precision at given recall results computed through precision.at.multiple.recall.level.over.classes
-do.RANKS  <- function(score=eav.score, kernel=rw.kernel, a=2,  p=1,  sparsify=TRUE, kk=5, rep=1, seed=0, 
-                       data.dir="../data/", labels.dir="../data/", output.dir="../Results/", data, labels, ...)  {
-  
+do.RANKS  <- function(score=eav.score, kernel=rw.kernel, a=2,  p=1,  sparsify=TRUE, kk=5, rep=1, stratified=TRUE, seed=0, 
+                       data.dir, labels.dir, output.dir, data, labels, ...)  {
+
   recall.levels <- c(0.01, 0.05, seq(from=0.1, to=1, by=0.1));
   
   # loading the adjacency matrix
-  dataset.name <- paste0(data.dir,data,".rda");
+  dataset.name <- paste0(data.dir,"/",data,".rda");
   data.name=load(dataset.name);
   K=eval(parse(text=data.name));  # K represents the adjacency matrix
   K[K<0]<-0;
 
   # loading labels matrix
-  dataset.name <- paste0(labels.dir,labels,".rda");
+  dataset.name <- paste0(labels.dir,"/",labels,".rda");
   label.name=load(dataset.name);
   T=eval(parse(text=label.name));  # T represents the label matrix
   classnames<-colnames(T);
@@ -1293,7 +1380,7 @@ do.RANKS  <- function(score=eav.score, kernel=rw.kernel, a=2,  p=1,  sparsify=TR
   
   for (i in 1:nclasses)  {
       ind.pos <- which(T[,i]==1);
-      res <- multiple.ker.score.cv(K, ind.pos, m=kk, p=rep, init.seed=seed, fun=score, ...)$av.scores; 
+      res <- multiple.ker.score.cv(K, ind.pos, m=kk, p=rep, stratified=stratified, init.seed=seed, fun=score, ...)$av.scores; 
       S[,i] <- res;
       cat("Class ", i, " : ", classnames[i], "\n");
   }
@@ -1310,23 +1397,24 @@ do.RANKS  <- function(score=eav.score, kernel=rw.kernel, a=2,  p=1,  sparsify=TR
   else if (score.name == "WSLD.score")
 	score.name <- paste0(score.name, 2);
 	
-  score.file = paste0(output.dir, "Scores.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
+  score.file = paste0(output.dir, "/", "Scores.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
   save(S, file=score.file)
   
   # computing and saving AUC  
   
   AUC <- AUC.single.over.classes(T, S);
   
-  AUC.file = paste0(output.dir, "AUC.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
+  AUC.file = paste0(output.dir, "/", "AUC.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
   
   save(AUC, file=AUC.file);
   
   # computing and saving PXR 
   PXR <- precision.at.multiple.recall.level.over.classes (T, S, rec.levels=recall.levels);
   
-  PXR.file = paste0(output.dir, "PXR.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
+  PXR.file = paste0(output.dir, "/", "PXR.",score.name,".","p",p,".","a",a,".","f",sparsify,".",data.name, ".", label.name, ".rda");
   
   save(PXR, file=PXR.file);
+
   
 }
 
@@ -1348,31 +1436,31 @@ do.RANKS  <- function(score=eav.score, kernel=rw.kernel, a=2,  p=1,  sparsify=TR
 #' @param sparsify : boolean. If TRUE the input matrix is sparsified using Sparsify.matrix from NetpreProc (def: FALSE)
 #' @param norm : logical. If TRUE for each class the score is normalized in [0,1], otherwise the raw scores are maintained (default).
 #' @param data : name of the network data set to be loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph. 
-#'        By default it assumes that it is in the "data" directory
+#'        By default it assumes that it is in the data.dir directory
 #' @param labels : name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
-#'          By default it assumes that it is in the "data" directory
+#'          By default it assumes that it is in the data.dir directory
 #' @param output.name : name of the output file (without rda extension). Other informations including the learning parameters are added
-#' @param net.dir : relative path to directory where the adjiacency matrix is stored (def: data)
-#' @param labels.dir : relative path to directory where the label matrix is stored (def: data)
-#' @param output.dir : relative path to directory where the results are stored  (def: Results). Note that data and labels must have the same number of rows and in the same order. Moreover if any label column corresponds to any GO root term, this is eliminated to avoid prediction of GO root nodes.
+#' @param data.dir : relative path to directory where the adjiacency matrix is stored 
+#' @param labels.dir : relative path to directory where the label matrix is stored 
+#' @param output.dir : relative path to directory where the results are stored. Note that data and labels must have the same number of rows and in the same order. Moreover if any label column corresponds to any GO root term, this is eliminated to avoid prediction of GO root nodes.
 #' @return 3 rda files stored in the Results directory:
 #' - Scores results: A matrix with examples on rows and classes on columns representing the computed scores for each example and for each considered class
 #' - AUC results files computed through AUC.single.over.classes
 #' - Precision at given recall results computed through precision.at.multiple.recall.level.over.classes
 do.loo.RANKS  <- function(score=eav.score, compute.kernel=TRUE, kernel=rw.kernel,  a=2, k=19, d=2, 
                  p=1, sparsify=FALSE, norm=FALSE, data, labels, output.name, 
-				 net.dir="data/", labels.dir="data/", output.dir="Results/")  {
+				 data.dir, labels.dir, output.dir)  {
 
   recall.levels <- c(0.01, 0.05, seq(from=0.1, to=1, by=0.1));
   
   # loading the adjacency matrix
-  dataset.name <- paste0(net.dir, data,".rda");
+  dataset.name <- paste0(data.dir, "/", data,".rda");
   data.name=load(dataset.name);
   M=eval(parse(text=data.name));  # M represents the adjacency matrix
   M[M<0]<-0;
 
   # loading labels matrix
-  dataset.name <- paste0(labels.dir,labels,".rda");
+  dataset.name <- paste0(labels.dir, "/", labels,".rda");
   label.name=load(dataset.name);
   ann=eval(parse(text=label.name));  # ann represents the label matrix
   # if there is a GO root node or a HPO root node this is eliminated
@@ -1441,21 +1529,21 @@ do.loo.RANKS  <- function(score=eav.score, compute.kernel=TRUE, kernel=rw.kernel
     score.name <- paste0(score.name, k);
   
   
-  score.file = paste0(output.dir,"Scores.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
+  score.file = paste0(output.dir,"/","Scores.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
   save(S, file=score.file)
   
   # computing and saving AUC  
   
   AUC <- AUC.single.over.classes(ann, S);
   
-  AUC.file = paste0(output.dir,"AUC.loo.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
+  AUC.file = paste0(output.dir,"/","AUC.loo.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
   
   save(AUC, file=AUC.file);
   
   # computing and saving PXR 
   PXR <- precision.at.multiple.recall.level.over.classes (ann, S, rec.levels=recall.levels);
   
-  PXR.file = paste0(output.dir,"PXR.loo.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
+  PXR.file = paste0(output.dir,"/","PXR.loo.",score.name,".","p",p,".","a",a,".",output.name, ".rda");
   
   save(PXR, file=PXR.file);
   rm(ann,S);gc();  
@@ -1496,10 +1584,6 @@ RW <- function(W, ind.positives, tmax=1000, eps=1e-10, norm=TRUE) {
    if (n.positives == 0)
  	  stop("RW: number of core positives is equal to 0!");
    p0[ind.positives] <- 1/n.positives;
-   
-   #cat("Inizio trasposta \n"); print(date());
-   #M <- t(M);
-   #cat("Fine trasposta \n"); print(date());
    p <- p0;
    for (t in 1:tmax) {
  	 p0 <- p;
@@ -1634,6 +1718,7 @@ GBAmax <- function(W, ind.positives) {
 #'     is assumed that W is just normalized
 #' @param ind.pos : indices of the "core" positive examples of the graph. They represent to the indices of W corresponding to the positive examples
 #' @param k : number of folds (def: 5)
+#' @param stratified : boolean. If true stratified cross-validation is performed, otherwise not stratified cv
 #' @param init.seed : initial seed for the random generator. If 0 (default) no initialization is performed
 #' @param fun : function. It must be a randow walk method:
 #'                 - RW (default)
@@ -1647,15 +1732,18 @@ GBAmax <- function(W, ind.positives) {
 #' - eps : maximum allowed difference between the computed probabilities at the steady state (def. 1e-10)
 #' @return a vector with the the probabilities for each example at the steady state
 
-RW.cv <- function(W, ind.pos, k=5, init.seed=0, fun=RW, ...) {
+RW.cv <- function(W, ind.pos, k=5, stratified=TRUE, init.seed=0, fun=RW, ...) {
    if (init.seed!=0)
      set.seed(init.seed);
    n <- nrow(W);
    p <- numeric(n);
    names(p) <- rownames(W);
    
-   # Realization of the folds. ERA QUI L'ERRORE: prima al posto di 1:n c'era solo n !!!!
-   fold <- do.stratified.cv.data(1:n, ind.pos, k=k, seed=init.seed);
+   # Realization of the folds. 
+   if (stratified)
+	    fold <- do.stratified.cv.data(1:n, ind.pos, k=k, seed=init.seed)
+   else
+	    fold <- do.cv.data(1:n, ind.pos, k=k, seed=init.seed);
    
    # computing scores on the k folds
    for (i in 1:k) {
@@ -1727,27 +1815,32 @@ multiple.RW.cv <- function(W, ind.pos, k=5, p=100, init.seed=0, fun=RW, ...) {
 #' @param eps : maximum allowed difference between the computed probabilities at the steady state (def. 1e-10)
 #' @param k : number of folds for the cross validation (def. 5)
 #' @param filter : if TRUE (def) the adjacency matrix is sparsified otherwise not
+#' @param stratified : boolean. If true stratified cross-validation is performed, otherwise not stratified cv
 #' @param seed : seed of the random generator for the generation of the folds (def: 1):
+#' @param data.dir : relative path to directory where the adjiacency matrix is stored 
+#' @param labels.dir : relative path to directory where the label matrix is stored 
+#' @param output.dir : relative path to directory where the results are stored  
 #' @param data : name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph. 
-#'        It assumes that it is in the "data" directory
+#'        It assumes that it is in the data.dir directory
 #' @param labels : name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
-#'          It assumes that it is in the "data" directory
+#'          It assumes that it is in the lables.dir directory
 #' @return 3 rda files stored in the Results directory (names of the files are automatically computed from the input data):
 #' - Scores results: A matrix with examples on rows and classes on columns representing the computed scores for each example and for each considered class
 #' - AUC results files computed through AUC.single.over.classes
 #' - Precision at given recall results computed through precision.at.multiple.recall.level.over.classes
-do.RWR  <- function(gamma=0.6, tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, data, labels)  {
+do.RWR  <- function(gamma=0.6, tmax=1000, eps=1e-10, k=5, stratified=TRUE, filter=TRUE, seed=1, 
+                    data.dir, labels.dir, output.dir, data, labels)  {
 
   recall.levels <- c(0.01, 0.05, seq(from=0.1, to=1, by=0.1));
   
   # loading the adjacency matrix
-  dataset.name <- paste0("data/",data,".rda");
+  dataset.name <- paste0(data.dir,"/",data,".rda");
   data.name=load(dataset.name);
   K=eval(parse(text=data.name));  # K represents the adjacency matrix
   K[K<0]<-0;
 
   # loading labels matrix
-  dataset.name <- paste0("data/",labels,".rda");
+  dataset.name <- paste0(labels.dir,"/",labels,".rda");
   label.name=load(dataset.name);
   T=eval(parse(text=label.name));  # T represents the label matrix
 
@@ -1772,27 +1865,27 @@ do.RWR  <- function(gamma=0.6, tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, d
   for (i in 1:nclasses)  {
     ind.pos <- which(T[,i]==1);
     # 1 CV
-    res <- RW.cv(K, ind.pos, k=k, init.seed=seed, fun=RWR, gamma=gamma, tmax=tmax, eps=eps, norm=FALSE); 
+    res <- RW.cv(K, ind.pos, k=k, stratified=stratified, init.seed=seed, fun=RWR, gamma=gamma, tmax=tmax, eps=eps, norm=FALSE); 
     S[,i] <- res;
     cat("Class ", i, " : ", classnames[i], "\n");
   }
 
   # saving scores
   
-  score.file = paste0("Results/Scores.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");
+  score.file = paste0(output.dir, "/", "Scores.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");
   save(S, file=score.file);
   
   # computing and saving AUC  
   
   AUC <- AUC.single.over.classes(T, S);
   
-  AUC.file = paste0("Results/AUC.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");  
+  AUC.file = paste0(output.dir, "/", "AUC.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");  
   save(AUC, file=AUC.file);
 
   # computing and saving PXR 
   PXR <- precision.at.multiple.recall.level.over.classes (T, S, rec.levels=recall.levels);
 
-  PXR.file = paste0("Results/PXR.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");  
+  PXR.file = paste0(output.dir, "/", "PXR.","RWR.","g",gamma,".","f",filter,".",data.name, ".", label.name, ".rda");  
   
   save(PXR, file=PXR.file);
   
@@ -1806,7 +1899,11 @@ do.RWR  <- function(gamma=0.6, tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, d
 #' @param eps : maximum allowed difference between the computed probabilities at the steady state (def. 1e-10)
 #' @param k : number of folds for the cross validation (def. 5)
 #' @param filter : if TRUE (def) the adjacnecy matrix is sparsified otherwise not
+#' @param stratified : boolean. If true stratified cross-validation is performed, otherwise not stratified cv
 #' @param seed : seed of the random generator for the generation of the folds (def: 1):
+#' @param data.dir : relative path to directory where the adjiacency matrix is stored 
+#' @param labels.dir : relative path to directory where the label matrix is stored 
+#' @param output.dir : relative path to directory where the results are stored  
 #' @param data : name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph. 
 #'        It assumes that it is in the "data" directory
 #' @param labels : name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
@@ -1815,18 +1912,19 @@ do.RWR  <- function(gamma=0.6, tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, d
 #' - Scores results: A matrix with examples on rows and classes on columns representing the computed scores for each example and for each considered class
 #' - AUC results files computed through AUC.single.over.classes
 #' - Precision at given recall results computed through precision.at.multiple.recall.level.over.classes
-do.RW  <- function(tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, data, labels)  {
+do.RW  <- function(tmax=1000, eps=1e-10, k=5, stratified=TRUE, filter=TRUE, seed=1, 
+                   data.dir, labels.dir, output.dir, data, labels)  {
 
   recall.levels <- c(0.01, 0.05, seq(from=0.1, to=1, by=0.1));
   
   # loading the adjacency matrix
-  dataset.name <- paste0("data/",data,".rda");
+  dataset.name <- paste0(data.dir,"/",data,".rda");
   data.name=load(dataset.name);
   K=eval(parse(text=data.name));  # K represents the adjacency matrix
   K[K<0]<-0;
 
   # loading labels matrix
-  dataset.name <- paste0("data/",labels,".rda");
+  dataset.name <- paste0(labels.dir,"/",labels,".rda");
   label.name=load(dataset.name);
   T=eval(parse(text=label.name));  # T represents the label matrix
   nclasses <- ncol(T);
@@ -1850,27 +1948,27 @@ do.RW  <- function(tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, data, labels)
   for (i in 1:nclasses)  {
     ind.pos <- which(T[,i]==1);
     # 1 CV
-    res <- RW.cv(K, ind.pos, k=k, init.seed=seed, fun=RW, tmax=tmax, eps=eps, norm=FALSE); 
+    res <- RW.cv(K, ind.pos, k=k, stratified=stratified, init.seed=seed, fun=RW, tmax=tmax, eps=eps, norm=FALSE); 
     S[,i] <- res;
     cat("Class ", i, " : ", classnames[i], "\n");
   }
 
   # saving scores
   
-  score.file = paste0("Results/Scores.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
+  score.file = paste0(output.dir, "/", "Scores.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
   save(S, file=score.file);
   
   # computing and saving AUC  
   
   AUC <- AUC.single.over.classes(T, S);
   
-  AUC.file = paste0("Results/AUC.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
+  AUC.file = paste0(output.dir, "/", "AUC.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
   save(AUC, file=AUC.file);
 
   # computing and saving PXR 
   PXR <- precision.at.multiple.recall.level.over.classes (T, S, rec.levels=recall.levels);
 
-  PXR.file = paste0("Results/PXR.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
+  PXR.file = paste0(output.dir, "/", "PXR.","RW.", tmax, "step.","f",filter,".",data.name, ".", label.name, ".rda");
   
   save(PXR, file=PXR.file);
   
@@ -1884,27 +1982,32 @@ do.RW  <- function(tmax=1000, eps=1e-10, k=5, filter=TRUE, seed=1, data, labels)
 #'       - GBAmax: it computes the maximum between the edge weights connecting a node to its positive neighbours
 #' @param k : number of folds for the cross validation (def. 5)
 #' @param filter : if TRUE (def) the adjacnecy matrix is sparsified otherwise not
+#' @param stratified : boolean. If true stratified cross-validation is performed, otherwise not stratified cv
 #' @param seed : seed of the random generator for the generation of the folds (def: 1):
+#' @param data.dir : relative path to directory where the adjiacency matrix is stored 
+#' @param labels.dir : relative path to directory where the label matrix is stored 
+#' @param output.dir : relative path to directory where the results are stored  
 #' @param data : name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph. 
-#'        It assumes that it is in the "data" directory
+#'        It assumes that it is in the data.dir directory
 #' @param labels : name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
-#'          It assumes that it is in the "data" directory
+#'          It assumes that it is in the labels.dir directory
 #' @return 3 rda files stored in the Results directory (names of the files are automatically computed from the input data):
 #' - Scores results: A matrix with examples on rows and classes on columns representing the computed scores for each example and for each considered class
 #' - AUC results files computed through AUC.single.over.classes
 #' - Precision at given recall results computed through precision.at.multiple.recall.level.over.classes
-do.GBA  <- function(fun=GBAsum, k=5, filter=TRUE, seed=1, data, labels)  {
+do.GBA  <- function(fun=GBAsum, k=5,  stratified=TRUE, filter=TRUE, seed=1, 
+                     data.dir, labels.dir, output.dir, data, labels)  {
 
   recall.levels <- c(0.01, 0.05, seq(from=0.1, to=1, by=0.1));
   
   # loading the adjacency matrix
-  dataset.name <- paste0("data/",data,".rda");
+  dataset.name <- paste0(data.dir,"/",data,".rda");
   data.name=load(dataset.name);
   K=eval(parse(text=data.name));  # K represents the adjacency matrix
   K[K<0]<-0;
   gc();
   # loading labels matrix
-  dataset.name <- paste0("data/",labels,".rda");
+  dataset.name <- paste0(labels.dir,"/",labels,".rda");
   label.name=load(dataset.name);
   T=eval(parse(text=label.name));  # T represents the label matrix
   gc();
@@ -1930,7 +2033,7 @@ do.GBA  <- function(fun=GBAsum, k=5, filter=TRUE, seed=1, data, labels)  {
   for (i in 1:nclasses)  {
     ind.pos <- which(T[,i]==1);
     # 1 CV
-    res <- RW.cv(K, ind.pos, k=k, init.seed=seed, fun=fun); 
+    res <- RW.cv(K, ind.pos, k=k, stratified=stratified, init.seed=seed, fun=fun); 
     S[,i] <- res;
     cat("Class ", i, " : ", classnames[i], "\n");
 	gc();
@@ -1939,24 +2042,357 @@ do.GBA  <- function(fun=GBAsum, k=5, filter=TRUE, seed=1, data, labels)  {
   # saving scores
   
   fun.name <- as.character(substitute(fun));
-  score.file = paste0("Results/Scores.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
+  score.file = paste0(output.dir, "/", "Scores.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
   save(S, file=score.file);
   
   # computing and saving AUC  
   
   AUC <- AUC.single.over.classes(T, S);
   
-  AUC.file = paste0("Results/AUC.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
+  AUC.file = paste0(output.dir, "/", "AUC.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
   save(AUC, file=AUC.file)
 
   # computing and saving PXR 
   PXR <- precision.at.multiple.recall.level.over.classes (T, S, rec.levels=recall.levels);
 
-  PXR.file = paste0("Results/PXR.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
+  PXR.file = paste0(output.dir, "/", "PXR.", fun.name, ".f", filter, ".",data.name, ".", label.name, ".rda");
   
   save(PXR, file=PXR.file);
   
 }
+
+
+################################################################
+################################################################
+## Weighted score functions added to RANKS v. 1.0.1
+################################################################
+################################################################
+
+
+################################
+## Empirical Weighted Average score 
+################################
+
+########################################################
+# Method to compute the Empirical Weighted Average score for a single vertex
+# \eqn{score(x) = - K(x,x) * w(x) + 2/(sum_{x_i \in x.pos} w(x_i)) * sum_{x_i \in x.pos} K(x,x_i) * w(x_i)}
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal. 
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# return: The eav score of the element x
+setGeneric("single.eav.w.score", 
+                 function(RW, x, x.pos, w, auto=FALSE) standardGeneric("single.eav.w.score"));
+
+# Method to compute the Empirical Weighted Average score for a single vertex
+# \eqn{score(x) = - K(x,x) * w(x) + 2/(sum_{x_i \in x.pos} w(x_i)) * sum_{x_i \in x.pos} K(x,x_i) * w(x_i)}
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal. 
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# return: The eav score of the element x
+setMethod("single.eav.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w, auto=FALSE) {
+   if (nrow(RW) != ncol(RW))
+     stop("second arg must be a square matrix");
+   if (auto)
+     score <- -RW[x,x]*w[x] + (2/sum(w[x.pos])) * sum(RW[x,]*w)   
+   else
+     score <- (2/sum(w[x.pos])) * sum(RW[x,]*w)  
+   return(score);
+})
+
+
+# Method to compute the Empirical Weighted Average score for a single vertex
+# RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal.
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# return: The eav score of the element x
+setMethod("single.eav.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w, auto=FALSE) {
+      RW <- as(RW, "matrix");
+      return(single.eav.w.score(RW, x, x.pos, w, auto));
+})
+
+
+########################################################
+# Method to compute the Empirical Weighted Average score for a set of vertices
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: Vector of the eav weighted scores of the elements x. The names of the vector correspond to the indices x
+
+setGeneric("eav.w.score", 
+                 function(RW, x, x.pos, w, auto=FALSE, norm=TRUE) standardGeneric("eav.w.score"));
+
+# Method to compute the Empirical Weighted Average score for a set of vertices
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements  of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: Vector of the eav weighted scores of the elements x. The names of the vector correspond to the indices x
+setMethod("eav.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w, auto=FALSE, norm=TRUE) {
+	if (nrow(RW) != ncol(RW))
+      stop("RW must be a square matrix");
+	if (auto)
+      score <- -diag(RW)[x] + (2/sum(w[x.pos])) * (RW[x,x.pos] %*% w[x.pos]) 
+	else
+	  score <-  (2/sum(w[x.pos])) * (RW[x,x.pos] %*% w[x.pos]);                        
+	names(score)<-x;   
+	if (norm) {
+	  ma <- max(score);
+	  if (ma>0)
+	    score <- score/ma;
+	}
+	return(as.numeric(score));
+})
+
+
+## Method to compute the Empirical Weighted Average score for a set of vertices
+# RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements  of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# auto : boolean. If TRUE the component \eqn{-K(x,x)} is computed, otherwise is discarded (default)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: Vector of the eav weighted scores of the elements x. The names of the vector correspond to the indices x
+setMethod("eav.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w, auto=FALSE, norm=TRUE) {
+     RW <- as(RW, "matrix");
+     return(eav.w.score(RW, x, x.pos, w, auto, norm));
+})
+
+################################
+## Nearest Neighbour Weighted  score 
+################################
+
+# Method to compute the Kernel NN weighted score for a single vertex
+# \eqn{score(x) = - min_{x_i \in x.pos} -2 K(x,x_i)) * w(x_i)}
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal. 
+# return The NN weighted score of the element x
+setGeneric("single.NN.w.score", 
+                 function(RW, x, x.pos, w) standardGeneric("single.NN.w.score"));
+				 
+# Method to compute the Kernel NN weighted score for a single vertex
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal. 
+# return The NN weighted score of the element x
+setMethod("single.NN.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w) {
+	if (nrow(RW) != ncol(RW))
+      stop("RW arg must be a square matrix");
+    scores <- RW[x,]*w;
+    score <- max(scores);
+	names(score) <- x;
+	return(score);
+})
+
+
+#' Method to compute the Kernel NN score for a single vertex
+# RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal. 
+# return The NN weighted score of the element x
+setMethod("single.NN.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w) {
+     RW <- as(RW, "matrix");
+     return(single.NN.w.score(RW, x, x.pos, w));
+})
+
+
+#' Method to compute the Kernel NN weighted score for a set of vertices
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements  of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: The vector of the NN weighted scores of the elements x. The names of the vector correspond to the indices x
+setGeneric("NN.w.score", 
+                 function(RW, x, x.pos, w, norm=TRUE) standardGeneric("NN.w.score"));
+
+#' Method to compute the Kernel NN weighted score for a set of vertices
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity between pairs of nodes.
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements  of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: The vector of the NN weighted scores of the elements x. The names of the vector correspond to the indices x
+setMethod("NN.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w, norm=TRUE) {
+   if (nrow(RW) != ncol(RW))
+     stop("second arg must be a square matrix");
+   # positives elements are "weighted" according to w
+   scores <- t(RW[x,x.pos]) * w[x.pos];
+   score <- apply(as.matrix(scores),2,max); 
+   names(score)<-x;
+   if (norm) {
+	  ma <- max(score);
+	  if (ma>0)
+	    score <- score/ma;
+   }
+   return(score);
+})
+
+#' Method to compute the Kernel NN weighted score for a set of vertices
+# RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : vector of integer. Indices corresponding to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements  of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return: The vector of the NN weighted scores of the elements x. The names of the vector correspond to the indices x
+setMethod("NN.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w,  norm=TRUE) {
+     RW <- as(RW, "matrix");
+     return(NN.w.score(RW, x, x.pos, w, norm));
+})
+
+
+
+################################
+## K-Nearest Neighbour Weighted  score 
+################################
+
+
+
+# Method to compute the Kernel KNN Weighted score for a single vertex
+# \eqn{score(x) = - sum_{k nearest x_i \in x.pos}  -2 K(x,x_i) * w(x_i)}
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+#              between pairs of nodes.
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered
+# return: The KNN score of the element x
+setGeneric("single.KNN.w.score", 
+                 function(RW, x, x.pos, w, k=3) standardGeneric("single.KNN.w.score"));
+
+# Method to compute the Kernel KNN score for a single vertex
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+#              between pairs of nodes.
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered
+# return: The KNN score of the element x
+setMethod("single.KNN.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w, k=3) {
+	if (nrow(RW) != ncol(RW))
+      stop("second arg must be a square matrix");
+	n <- length(x.pos);
+	if (k > n) {
+      k <- n;
+      warn.message <- paste("k must be lower or equal to the number of positive examples: k set to", n);
+      warning(warn.message);
+	}     
+    scores <- RW[x,x.pos] * w[x.pos];    
+    scores <- sort(scores, decreasing=TRUE)[1:k];
+    score <- sum(scores);
+	names(score) <- x;
+	return(score/k);
+})
+
+#  Method to compute the Kernel KNN score for a single vertex
+#  RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : integer. Index corresponding to the element of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes of the graph belong to the class under study. The elements of w correspond to the rows of RW and the length of w and the number of rows of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered
+# return: The KNN score of the element x
+setMethod("single.KNN.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w, k=3) {
+    RW <- as(RW, "matrix");
+    return(single.KNN.w.score(RW, x, x.pos, w, k));
+})
+
+
+
+# Method to compute the Kernel KNN weighted score for a set of vertices.
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+#              between pairs of nodes.
+# x : vector of integer. Indices correspond to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered (def. 3)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return the KNN weighted scores of the elements x
+setGeneric("KNN.w.score", 
+                 function(RW, x, x.pos, w, k=3, norm=TRUE) standardGeneric("KNN.w.score"));
+
+#' Method to compute the Kernel KNN score for a set of vertices. 
+# RW : matrix. It must be a kernel matrix or a symmetric matrix expressing the similarity
+#              between pairs of nodes.
+# x : vector of integer. Indices correspond to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered (def. 3)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return the KNN weighted scores of the elements x
+setMethod("KNN.w.score", signature(RW="matrix"),
+  function(RW, x, x.pos, w, k=3, norm=TRUE) {
+   #if (length(x.pos)==1)
+    # stop("The number of positives must be larger than 1. This bug must be fixed");
+   if (nrow(RW) != ncol(RW))
+     stop("second arg must be a square matrix");
+   n <- length(x.pos);
+   if (k==1)
+     stop("k must be larger than 1. Please, use NN.score instead.");
+   if (k > n) {
+     k <- n;
+     warn.message <- paste("k must be lower or equal to the number of positive examples: k set to", n);
+     warning(warn.message);
+   }     
+ 
+   scores <- as.matrix(RW[x,x.pos]);
+   # the next 2 lines are correct but inefficent and should be imorived:
+   scores <- t(scores) * w[x.pos];
+   scores <- t(scores);
+   y <- numeric(k);
+   score = matrix(numeric(length(x)*k), ncol=k);
+   for (j in 1:length(x))
+      score[j,] <- .C("select_top", as.double(scores[j,]), as.double(y), as.integer(n), as.integer(k), PACKAGE = "RANKS")[[2]]; 
+   score <- apply(score,1,sum);  # results are "per rows"
+   names(score) <- x; 
+   score<-score/k;
+   if (norm) {
+	  ma <- max(score);
+	  if (ma>0)
+	    score <- score/ma;
+   }
+   return(score);
+}) 
+
+
+# Method to compute the Kernel KNN score for a set of vertices. 
+# RW : an object of the virtual class graph (hence including objects of class graphAM  and graphNEL from the package graph).
+# x : vector of integer. Indices correspond to the elements of the RW matrix for which the score must be computed
+# x.pos : vector of integer. Indices of the positive elements of the RW matrix
+# w : numeric vector. Its elements represent the initial likelihood that the nodes x of the graph belong to the class under study. The elements of w correspond to the columns of RW and the length of w and the number of columns of RW must be equal.
+# k : integer. Number of the k nearest neighbours to be considered (def. 3)
+# norm : boolean. If TRUE (def.) the scores are normalized between 0 and 1.
+# return the KNN weighted scores of the elements x
+setMethod("KNN.w.score", signature(RW="graph"),
+  function(RW, x, x.pos, w, k=3,  norm=TRUE) {
+    RW <- as(RW, "matrix");
+    return(KNN.score(RW, x, x.pos, w, k, norm));
+}) 
+
+
 
 
 
@@ -1965,7 +2401,7 @@ do.GBA  <- function(fun=GBAsum, k=5, filter=TRUE, seed=1, data, labels)  {
 
   
 .onLoad <- function(libname=.libPaths(), pkgname="RANKS")
-       library.dynam("RANKS", pkgname, libname);
+      library.dynam("RANKS", pkgname, libname);
 
 .onAttach <- function(libname=.libPaths(), pkgname="RANKS")
-               packageStartupMessage("RANKS: ranking and classification with kernelized score functions.\n")
+              packageStartupMessage("RANKS: ranking and classification with kernelized score functions.\n")

@@ -11,7 +11,7 @@ High level function to perform RANKS leave one out (loo) experiments with mutlip
 \usage{
 do.loo.RANKS(score = eav.score, compute.kernel = TRUE, kernel = rw.kernel, a = 2, 
 k = 19, d = 2, p = 1, sparsify = FALSE, norm = FALSE, data, labels, output.name, 
-net.dir = "data/", labels.dir = "data/", output.dir = "Results/")
+data.dir, labels.dir, output.dir)
 }
 
 \arguments{
@@ -43,18 +43,18 @@ net.dir = "data/", labels.dir = "data/", output.dir = "Results/")
 \item{norm}{logical. If TRUE for each class the score is normalized in [0,1], otherwise the raw scores are maintained (default).}
 
 \item{data}{name of the network data set to be loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph.
-By default it assumes that it is in the "data" directory}
+By default it assumes that it is in the data.dir directory}
 
 \item{labels}{name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
-By default it assumes that it is in the "data" directory}
+By default it assumes that it is in the net.dir directory}
 
 \item{output.name}{name of the output file (without rda extension). Other informations including the learning parameters are added in the name of the file}
 
-\item{net.dir}{relative path to the directory where the adjiacency matrix is stored (def: data)}
+\item{data.dir}{relative path to the directory where the adjiacency matrix is stored }
 
-\item{labels.dir}{relative path to directory where the label matrix is stored (def: data)}
+\item{labels.dir}{relative path to directory where the label matrix is stored }
 
-\item{output.dir}{relative path to directory where the results are stored  (def: Results). Note that data and labels must have the same number of rows and in the same order. Moreover if any label column corresponds to any GO root term, this is eliminated to avoid prediction of GO root nodes.}
+\item{output.dir}{relative path to directory where the results are stored. Note that data and labels must have the same number of rows and in the same order. Moreover if any label column corresponds to any GO root term, this is eliminated to avoid prediction of GO root nodes.}
 }
 
 \details{
@@ -81,24 +81,25 @@ Other learning parameters are appended to the name of the file.
 }
 
 \examples{
-\dontrun{
+\donttest{
 # Yeast prediction of 177 FunCat classes by leave-one-out using STRING data
 # data obtained from the bionetdata package from CRAN. 
 # See the AUC and Precision/recall results in the Results directory
 library(bionetdata);
-if (!dir.exists("data"))
-  dir.create("data");
-if (!dir.exists("Results"))
-  dir.create("Results");
+dd=tempdir();
+rr=tempdir();
 data(Yeast.STRING.data);
 data(Yeast.STRING.FunCat);
-save(Yeast.STRING.data, file="data/net.rda");
-save(Yeast.STRING.FunCat, file="data/labels.rda");
-do.loo.RANKS(data="net", labels="labels", output.name="Yeast.loo");
-
+save(Yeast.STRING.data, file=paste(dd,"/net.rda", sep=""));
+save(Yeast.STRING.FunCat, file=paste(dd,"/labels.rda", sep=""));
+do.loo.RANKS(data.dir=dd, labels.dir=dd, output.dir=rr, data="/net", 
+labels="/labels", output.name="Yeast.loo");
 # another  leave-one-out prediction using KNN score and 2 steps random walk kernel
-do.loo.RANKS(score = KNN.score, k=3, p=2, data="net", 
-             labels="labels", output.name="Yeast.loo");
+do.loo.RANKS(score = KNN.score, k=3, p=2, data.dir=dd, labels.dir=dd, output.dir=rr, 
+data="/net", labels="/labels", output.name="Yeast.loo");
 }
 }
+
+
+
 

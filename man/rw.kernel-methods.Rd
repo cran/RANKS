@@ -88,5 +88,6 @@ data(FIN.data);
 W <- as.matrix(FIN.data);
 K <- rw.kernel(W);
 # this a 2-step random walk kernel
-K2 <- p.step.rw.kernel(K, p=2);
+\donttest{
+K2 <- p.step.rw.kernel(K, p=2);}
 }

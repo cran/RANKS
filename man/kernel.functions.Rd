@@ -82,7 +82,7 @@ library(bionetdata);
 data(DD.chem.data);
 K <- identity.kernel(DD.chem.data);
 K <- linear.kernel(DD.chem.data);
-\dontrun{
+\donttest{
 K <- gaussian.kernel(DD.chem.data);
 K <- inv.multiquadric.kernel(DD.chem.data);
 K <- poly.kernel(DD.chem.data);

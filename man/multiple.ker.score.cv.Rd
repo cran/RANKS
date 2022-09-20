@@ -8,7 +8,8 @@ RANKS multiple cross-validation for a single class
 Function to execute multiple cross-validation with RANKS for a single class.
 }
 \usage{
-multiple.ker.score.cv(RW, ind.pos, m = 5, p = 100, init.seed = 0, fun = KNN.score, ...)
+multiple.ker.score.cv(RW, ind.pos, m = 5, p = 100, stratified=TRUE, 
+                      init.seed = 0, fun = KNN.score, ...)
 }
 
 \arguments{
@@ -19,6 +20,8 @@ multiple.ker.score.cv(RW, ind.pos, m = 5, p = 100, init.seed = 0, fun = KNN.scor
 \item{m}{number of folds for each cross-validation}
 
 \item{p}{number of repeated cross-validations}
+
+\item{stratified}{boolean. If TRUE (def.) stratified CV is performed otherwise vanilla CV is done}
 
 \item{init.seed}{initial seed for the random generator (def: 0)}
 

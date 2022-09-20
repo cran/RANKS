@@ -10,7 +10,7 @@ Function to execute cross-validation with random walk based, labelprop and GBA m
 }
 
 \usage{
-RW.cv(W, ind.pos, k = 5, init.seed = 0, fun = RW, ...)
+RW.cv(W, ind.pos, k = 5, stratified=TRUE, init.seed = 0, fun = RW, ...)
 }
 
 \arguments{
@@ -21,6 +21,8 @@ is assumed that W is just normalized}
 \item{ind.pos}{indices of the "core" positive examples of the graph. They represent the indices of W corresponding to the positive examples}
 
 \item{k}{number of folds (def: 5)}
+
+\item{stratified}{boolean. If TRUE (def.) stratified CV is performed otherwise vanilla CV is done}
 
 \item{init.seed}{initial seed for the random generator. If 0 (default) no initialization is performed}
 
@@ -71,7 +73,7 @@ labels <- DrugBank.Cat[,"Penicillins"];
 ind.pos <- which(labels==1);
 res <- RW.cv(DD.chem.data, ind.pos, k = 5, init.seed = 0, fun = GBAsum);
 
-\dontrun{
+\donttest{
 # the same but using label.prop
 res <- RW.cv(DD.chem.data, ind.pos, k = 5, init.seed = 0, fun = label.prop, tmax=2);
 

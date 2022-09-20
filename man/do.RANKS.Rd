@@ -11,8 +11,8 @@ High level function to perform RANKS cross-validation experiments with multiple 
 
 \usage{
 do.RANKS(score = eav.score, kernel = rw.kernel, a = 2, p = 1, sparsify = TRUE, kk = 5, 
-rep = 1, seed = 0, data.dir = "../data/", labels.dir = "../data/", 
-output.dir = "../Results/", data, labels, ...)
+rep = 1, stratified=TRUE, seed = 0, data.dir, labels.dir, 
+output.dir, data, labels, ...)
 }
 
 \arguments{
@@ -39,13 +39,15 @@ output.dir = "../Results/", data, labels, ...)
 
 \item{rep}{number of repetitions of the cross validation (def: 1)}
 
+\item{stratified}{boolean. If TRUE (def.) stratified CV is performed otherwise vanilla CV is done}
+
 \item{seed}{initialization seed for the random generator to create folds (def:0)}
 
-\item{data.dir}{relative path to directory where the adjiacency matrix is stored (def: ../data)}
+\item{data.dir}{relative path to directory where the adjiacency matrix is stored}
 
-\item{labels.dir}{relative path to directory where the label matrix is stored (def: ../data)}
+\item{labels.dir}{relative path to directory where the label matrix is stored}
 
-\item{output.dir}{relative path to directory where the results are stored  (def: ../Results)}
+\item{output.dir}{relative path to directory where the results are stored}
 
 \item{data}{name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph.
 It assumes that it is in the data.dir directory}
@@ -80,20 +82,19 @@ Other learning parameters are appended to the name of the file.
 }
 
 \examples{
-\dontrun{
+\donttest{
 # Yeast prediction of 177 FunCat classes by 5-fold cross validation using STRING data
 # data obtained from the bionetdata package from CRAN
 # See the AUC and Precision/recall results in the Results directory
 library(bionetdata);
-if (!dir.exists("data"))
-  dir.create("data");
-if (!dir.exists("Results"))
-  dir.create("Results");
+dd=tempdir();
+rr=tempdir();
 data(Yeast.STRING.data);
 data(Yeast.STRING.FunCat);
-save(Yeast.STRING.data, file="data/net.rda");
-save(Yeast.STRING.FunCat, file="data/labels.rda");
-do.RANKS(data.dir = "data/", labels.dir = "data/", output.dir = "Results/", 
-         data="net", labels="labels")
+save(Yeast.STRING.data, file=paste(dd,"/net.rda", sep=""));
+save(Yeast.STRING.FunCat, file=paste(dd,"/labels.rda", sep=""));
+do.RANKS(data.dir=dd, labels.dir=dd, output.dir=rr, data="/net", labels="/labels");
 }
 }
+
+

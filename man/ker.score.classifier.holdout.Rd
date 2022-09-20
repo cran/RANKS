@@ -1,18 +1,22 @@
 \name{ker.score.classifier.holdout}
 \alias{ker.score.classifier.holdout}
+\alias{ker.score.holdout}
 
 \title{
 RANKS held-out procedure for a single class
 }
 
 \description{
-Function to perform an held-out procedure for a single class with a kernel-based score method
+Functions to perform an held-out procedure for a single class with a kernel-based score method
 }
 \usage{
 ker.score.classifier.holdout(K, ind.pos, ind.test, m = 5, p = 10, 
 alpha = seq(from = 0.05, to = 0.6, by = 0.05), init.seed = 0, 
 opt.fun = compute.F, fun = KNN.score, ...)
+ker.score.holdout (K, ind.pos, ind.test, fun=KNN.score, ...)
 }
+
+
 
 \arguments{
 \item{K}{matrix. Kernel matrix or any valid symmetric matrix}
@@ -47,22 +51,29 @@ Any function having two arguments representing the vector of predicted and true 
 }
 
 \details{
-Function to classify labels according to an hold-out procedure with a kernel-based score method.
+\code{ker.score.classifier.holdout} is a function to classify labels according to an hold-out procedure with a kernel-based score method.
 The optimal threshold for a given class is obtained by (possibly multiple) internal cross-validation on the training set.
 Scores of the held-out nodes are computed. Thresholds are computed on the training set
 by cross-validation and then are used to classify the held-out nodes in the test set.
 The optimal quantile and corresponding threshold  are selected by internal cross-validation using the F-score as metrics.
-Note the test examples are given as indices of the rows of the input matrix RW.
+Note the test examples are given as indices of the rows of the input matrix.
+
+\code{ker.score.holdout} provides a ranking according to an hold-out procedure with a kernel-based score method.
+
 }
 
 \value{
-a list with four components:
+\code{ker.score.classifier.holdout}
+returns a list with four components:
 A list with 4 components:
 \item{labels}{vector of the predicted labels for the test set(1 represent positive, 0 negative)}
 \item{av.scores }{a vector with the  scores computed on the test set.
               Elements of the vector av.scores correspond to ind.test rows of RW}
 \item{opt.alpha }{the optimal quantile alpha}
 \item{opt.thresh }{the optimal threshold}
+
+\code{ker.score.holdout}
+returns a vector of the predicted scores for the test set
 }
 
 

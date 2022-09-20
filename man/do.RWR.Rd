@@ -9,8 +9,8 @@ High level function to perform random walk with restart cross-validation experim
 }
 
 \usage{
-do.RWR(gamma = 0.6, tmax = 1000, eps = 1e-10, k = 5, filter = TRUE, 
-       seed = 1, data, labels)
+do.RWR(gamma = 0.6, tmax = 1000, eps = 1e-10, k = 5, stratified=TRUE, filter = TRUE, 
+ seed = 1, data.dir, labels.dir, output.dir, data, labels)
 }
 
 \arguments{
@@ -22,15 +22,23 @@ do.RWR(gamma = 0.6, tmax = 1000, eps = 1e-10, k = 5, filter = TRUE,
 
 \item{k}{number of folds for the cross validation (def. 5)}
 
+\item{stratified}{boolean. If TRUE (def.) stratified CV is performed otherwise vanilla CV is done}
+
 \item{filter}{if TRUE (def) the adjacency matrix is sparsified otherwise not}
 
 \item{seed}{seed of the random generator for the generation of the folds (def: 1)}
 
+\item{data.dir}{relative path to directory where the adjiacency matrix is stored }
+
+\item{labels.dir}{relative path to directory where the label matrix is stored }
+
+\item{output.dir}{relative path to directory where the results are stored  }
+
 \item{data}{name of the data set to loaded (without rda extension). It must be  an .rda file containing the adjiacency matrix of the graph.
-It assumes that it is in the "data" directory}
+It assumes that it is in the data.dir directory}
 
 \item{labels}{name of the target labels (without rda extension). It must be  an .rda file containing the label matrix of the examples.
-It assumes that it is in the "data" directory}
+It assumes that it is in the labels.dir directory}
 }
 
 \details{
@@ -57,24 +65,26 @@ Other learning parameters are appended to the name of the file. All the results 
 }
 
 \examples{
-\dontrun{
+\donttest{
 # Yeast prediction of 177 FunCat classes by 5-fold cross validation 
 # using 3 steps of Random walk with restart and STRING data. 
 # data obtained from the bionetdata package from CRAN
 # See the AUC and Precision/recall results in the Results directory
 library(bionetdata);
-if (!dir.exists("data"))
-  dir.create("data");
-if (!dir.exists("Results"))
-  dir.create("Results");
+dd=tempdir();
+rr=tempdir();
 data(Yeast.STRING.data);
 data(Yeast.STRING.FunCat);
-save(Yeast.STRING.data, file="data/net.rda");
-save(Yeast.STRING.FunCat, file="data/labels.rda");
-do.RWR(tmax = 3, k = 5, filter = FALSE, seed = 1, data="net", labels="labels");
+save(Yeast.STRING.data, file=paste(dd,"/net.rda", sep=""));
+save(Yeast.STRING.FunCat, file=paste(dd,"/labels.rda", sep=""));
+do.RWR(tmax = 3, k = 5, filter = FALSE, seed = 1, data.dir=dd, labels.dir=dd, 
+output.dir=rr, data="/net", labels="/labels");
 # the same experiment, but the iterations are repeated till to convergence 
 # (this can require a quite long time ...)
-do.RWR(tmax = 1000, k = 5, eps = 1e-5, filter = FALSE, seed = 1, data="net", labels="labels");
+do.RWR(tmax = 1000, k = 5, eps = 1e-5, filter = FALSE, seed = 1, data.dir=dd, 
+labels.dir=dd, output.dir=rr, data="/net", labels="/labels");
 }
 }
+
+
 

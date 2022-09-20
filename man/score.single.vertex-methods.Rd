@@ -137,7 +137,7 @@ n <- length(labels);
 ind.pos <- which(labels==1);
 # NN-score computed directly on the STRING matrix on the first yeast gene YJR121W
 s <- single.NN.score(Yeast.STRING.data, 1, ind.pos);
-\dontrun{
+\donttest{
 # NN-score computed on the 1 step and 2-step random walk kernel matrix
 K <- rw.kernel(Yeast.STRING.data);
 sK <- single.NN.score(K, 1, ind.pos);

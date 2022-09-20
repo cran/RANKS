@@ -62,7 +62,7 @@ labels <- DrugBank.Cat[,"Penicillins"];
 ind.pos <- which(labels==1);
 # 2-step random walk
 res <- RW(DD.chem.data, ind.pos, tmax = 2);
-\dontrun{
+\donttest{
 # 5 steps random walk
 res <- RW(DD.chem.data, ind.pos, tmax = 5);
 }

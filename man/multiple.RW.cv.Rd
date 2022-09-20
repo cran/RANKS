@@ -78,7 +78,7 @@ ind.pos <- which(labels==1);
 
 res <- multiple.RW.cv(DD.chem.data, ind.pos, k = 5, p = 2, init.seed = 0, fun = GBAmax)
 
-\dontrun{
+\donttest{
 # the same but using the label.prop
 res <- multiple.RW.cv(DD.chem.data, ind.pos, k = 5, p = 2, init.seed = 0, fun = label.prop, tmax=2)
 

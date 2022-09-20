@@ -4,6 +4,7 @@
 \alias{norm1}
 \alias{Unit.sphere.norm}
 \alias{do.stratified.cv.data}
+\alias{do.cv.data}
 \alias{labelsfromscores}
 \alias{Multiple.labels.from.scores}
 \alias{selection.test}
@@ -22,6 +23,7 @@ compute.F(pred, labels)
 norm1(x)
 Unit.sphere.norm(K)
 do.stratified.cv.data(examples, positives, k = 5, seed = NULL)
+do.cv.data(examples, positives, k = 5, seed = NULL)
 labelsfromscores(scores, thresh)
 Multiple.labels.from.scores(S, thresh.vect)
 selection.test(pos.scores, av.scores, ind.positives, alpha = 0.05, thresh.pos = 0)
@@ -76,7 +78,9 @@ If not, the names attributes corresponding to the indices of the vector are adde
 
 \code{Unit.sphere.norm} normalize a kernel according to the unit sphere
 
-\code{do.stratified.cv.data} generates data for the stratified cross-validation. In particular subdividas the indices that refer to the rows of the data matrix in different folds (separated for positive and negative examples)
+\code{do.stratified.cv.data} generates data for the stratified cross-validation. In particular subdivides the indices that refer to the rows of the data matrix in different folds (separated for positive and negative examples)
+
+\code{do.cv.data} generates data for the vanilla not stratified cross-validation.
 
 \code{labelsfromscores} computes the labels of a single class from the corresponding scores
 
@@ -95,6 +99,11 @@ If not, the names attributes corresponding to the indices of the vector are adde
 \code{Unit.sphere.norm} returns  the kernel normalized according to the unit sphere
 
 \code{do.stratified.cv.data} returns a list with 2 two components:
+\item{fold.non.positives}{a list with k components. Each component is a vector with the indices of the non positive elements of the fold}
+\item{fold.positives}{a list with k components. Each component is a vector with the indices of the positive elements of the fold}
+Indices refer to row numbers of the data matrix
+
+\code{do.cv.data} returns a list with 2 two components:
 \item{fold.non.positives}{a list with k components. Each component is a vector with the indices of the non positive elements of the fold}
 \item{fold.positives}{a list with k components. Each component is a vector with the indices of the positive elements of the fold}
 Indices refer to row numbers of the data matrix

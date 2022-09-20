@@ -3,11 +3,17 @@ exportMethods(
     "eav.score",
     "KNN.score",
     "NN.score",
+	"eav.w.score",
+    "KNN.w.score",
+    "NN.w.score",
     "p.step.rw.kernel",
     "rw.kernel",
     "single.eav.score",
     "single.KNN.score",
     "single.NN.score",
+	"single.eav.w.score",
+    "single.KNN.w.score",
+    "single.NN.w.score",
     "single.WSLD.score",
     "WSLD.score" 
 )

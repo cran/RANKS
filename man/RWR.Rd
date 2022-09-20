@@ -63,7 +63,7 @@ labels <- DrugBank.Cat[,"Penicillins"];
 ind.pos <- which(labels==1);
 # 2-step RWR
 res <- RWR(DD.chem.data, ind.pos, tmax = 2);
-\dontrun{
+\donttest{
 # till to convergence
 res <- RWR(DD.chem.data, ind.pos, tmax = 5000, eps=1e-6);
 # 5 steps and higher gamma

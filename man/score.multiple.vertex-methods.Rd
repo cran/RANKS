@@ -125,7 +125,7 @@ n <- length(labels);
 ind.pos <- which(labels==1);
 # NN-scores computed directly on the STRING matrix 
 s <- NN.score(Yeast.STRING.data, 1:n, ind.pos);
-\dontrun{
+\donttest{
 # NN-scores computed on the 1 step and 2-step random walk kernel matrix
 K <- rw.kernel(Yeast.STRING.data);
 sK <- NN.score(K, 1:n, ind.pos);

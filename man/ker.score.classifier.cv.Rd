@@ -56,6 +56,8 @@ A list with 4 components:
               Elements of the vector av.scores correspond to the rows of RW}
 \item{opt.alpha }{the optimal quantile alpha}
 \item{opt.thresh }{the optimal threshold}
+
+a vector of the predicted scores for the test set
 }
 
 
